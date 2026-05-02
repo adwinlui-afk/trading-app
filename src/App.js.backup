@@ -6,8 +6,6 @@ import { runDailyScan } from './services/scanner';
 import { getTradeFee, isETF, getBaggerSignal } from './utils/tracker';
 import { signInWithGoogle, signOutUser, onAuthChange, getBalanceDB, setBalanceDB, getTradesDB, addTradeDB, updateTradeDB, getBaggerPortfolioDB, addBaggerPositionDB, removeBaggerPositionDB, resetAllDB, getSettingsDB, saveSettingsDB } from './services/firebase';
 import { askStockQuestion } from './services/chat';
-import { getWatchlistDB, addToWatchlistDB, removeFromWatchlistDB } from './services/watchlist';
-import { getWatchlistNews, getWatchlistRecommendation } from './services/watchlistAnalyzer';
 
 const FALLBACK_STOCKS = [
   { ticker: 'SOUN', price: 8.19, change: 4.73, volume: '29.0M', type: 'gainer' },
@@ -187,6 +185,7 @@ function SettingsTab({ settings, onSave, user }) {
     <div className="space-y-4">
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
         <p className="text-white font-bold mb-4">⚙️ Your Trading Setup</p>
+
         <div className="space-y-4">
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Trading Platform</label>
@@ -194,6 +193,7 @@ function SettingsTab({ settings, onSave, user }) {
               {PLATFORMS.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
             </select>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-400 mb-1 block">Stock Trade Fee ($)</label>
@@ -204,6 +204,7 @@ function SettingsTab({ settings, onSave, user }) {
               <input type="number" value={local.etfFee} onChange={e => setLocal(prev => ({...prev, etfFee: parseFloat(e.target.value)||0}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white font-mono"/>
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-400 mb-1 block">Starting Balance ($)</label>
@@ -214,6 +215,7 @@ function SettingsTab({ settings, onSave, user }) {
               <input type="number" value={local.target} onChange={e => setLocal(prev => ({...prev, target: parseFloat(e.target.value)||1000000}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white font-mono"/>
             </div>
           </div>
+
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Currency</label>
             <select value={local.currency} onChange={e => setLocal(prev => ({...prev, currency: e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white">
@@ -222,10 +224,12 @@ function SettingsTab({ settings, onSave, user }) {
             </select>
           </div>
         </div>
+
         <button onClick={handleSave} className={`w-full mt-4 py-3 rounded-xl text-sm font-bold transition-all ${saved?'bg-emerald-500 text-black':'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30'}`}>
           {saved ? '✅ Saved!' : 'Save Settings'}
         </button>
       </div>
+
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
         <p className="text-white font-bold mb-3">🎯 Milestones</p>
         <div className="space-y-2">
@@ -239,6 +243,7 @@ function SettingsTab({ settings, onSave, user }) {
           ))}
         </div>
       </div>
+
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
         <p className="text-white font-bold mb-3">👤 Account</p>
         <div className="flex items-center gap-3 mb-4">
@@ -279,96 +284,7 @@ function ScannerBadge({ type }) {
   return <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${c.color}`}>{c.label}</span>;
 }
 
-function WatchlistCard({ stock, onRemove, onBuyNow }) {
-  const [news, setNews] = useState([]);
-  const [recommendation, setRecommendation] = useState(null);
-  const [currentPrice, setCurrentPrice] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const [priceRes, newsData] = await Promise.all([
-          fetch(`/api/get-price?ticker=${stock.ticker}`).then(r => r.json()),
-          getWatchlistNews(stock.ticker),
-        ]);
-        const price = priceRes.price || stock.addedPrice;
-        setCurrentPrice(price);
-        setNews(newsData);
-        const rec = await getWatchlistRecommendation(stock, price, newsData);
-        setRecommendation(rec);
-      } catch (e) {
-        setCurrentPrice(stock.addedPrice);
-      }
-      setLoading(false);
-    }
-    load();
-  }, [stock]);
-
-  const priceChange = currentPrice ? ((currentPrice - stock.addedPrice) / stock.addedPrice * 100).toFixed(2) : 0;
-  const priceUp = parseFloat(priceChange) >= 0;
-  const recColor = recommendation?.recommendation === 'BUY NOW' ? 'emerald' : recommendation?.recommendation === 'DROP IT' ? 'red' : 'amber';
-
-  return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xl font-bold text-white">{stock.ticker}</span>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${stock.signal==='BUY'?'bg-emerald-500/20 text-emerald-400':'bg-red-500/20 text-red-400'}`}>{stock.signal}</span>
-          </div>
-          <p className="text-xs text-gray-500 font-mono">Added {new Date(stock.addedAt).toLocaleDateString()} @ ${stock.addedPrice}</p>
-          {currentPrice && (
-            <p className="text-xs font-mono mt-1">
-              <span className="text-gray-400">Now: </span>
-              <span className="text-white font-bold">${currentPrice}</span>
-              <span className={`ml-2 font-bold ${priceUp?'text-emerald-400':'text-red-400'}`}>{priceUp?'▲':'▼'} {Math.abs(priceChange)}%</span>
-            </p>
-          )}
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <ConfidenceRing value={stock.confidence}/>
-          <button onClick={() => onRemove(stock.ticker)} className="text-xs text-gray-600 hover:text-red-400">✕ Remove</button>
-        </div>
-      </div>
-
-      {loading && <p className="text-xs text-gray-500 animate-pulse mb-3">🔍 Analyzing...</p>}
-
-      {!loading && recommendation && (
-        <div className={`rounded-xl p-3 mb-3 ${recColor==='emerald'?'bg-emerald-500/10 border border-emerald-500/20':recColor==='red'?'bg-red-500/10 border border-red-500/20':'bg-amber-500/10 border border-amber-500/20'}`}>
-          <p className={`text-xs font-bold mb-1 ${recColor==='emerald'?'text-emerald-400':recColor==='red'?'text-red-400':'text-amber-400'}`}>
-            🤖 {recommendation.recommendation}
-          </p>
-          <p className="text-xs text-gray-400">{recommendation.reasoning}</p>
-        </div>
-      )}
-
-      {news.length > 0 && (
-        <div className="space-y-2 mb-3">
-          <p className="text-xs text-gray-500 uppercase tracking-widest">Latest News</p>
-          {news.map((item, i) => (
-            <a key={i} href={item.url} target="_blank" rel="noopener noreferrer" className="block bg-gray-800/50 rounded-xl p-2 hover:bg-gray-800 transition-all">
-              <p className="text-xs text-gray-300 line-clamp-2">{item.title}</p>
-              <p className="text-xs text-gray-600 mt-1">{item.source} · {new Date(item.publishedAt).toLocaleDateString()}</p>
-            </a>
-          ))}
-        </div>
-      )}
-
-      <div className="flex gap-2">
-        {recommendation?.recommendation === 'BUY NOW' && (
-          <button onClick={() => onBuyNow(stock)} className="flex-1 py-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-500/30">💰 Buy Now</button>
-        )}
-        {recommendation?.recommendation === 'DROP IT' && (
-          <button onClick={() => onRemove(stock.ticker)} className="flex-1 py-2 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl text-xs font-bold hover:bg-red-500/30">🗑 Drop It</button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SignalCard({ signal, onTrade, onWatch, balance, settings }) {
+function SignalCard({ signal, onTrade, balance, settings }) {
   const [actualEntry, setActualEntry] = useState(signal.price || signal.entry || 0);
   const stockFee = settings?.stockFee ?? 9.95;
   const etfFee = settings?.etfFee ?? 0;
@@ -438,10 +354,7 @@ function SignalCard({ signal, onTrade, onWatch, balance, settings }) {
             {highFee && <p className="text-xs text-amber-400">💡 Fee is {feePercent}% — acceptable at this balance. Grow account to reduce fee impact.</p>}
             <p className="text-xs text-gray-600">Remaining after trade: <span className="text-white">${(balance-totalCost).toFixed(0)}</span></p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => onTrade(signal, shares, actualEntry, fee)} className="flex-1 px-4 py-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-500/30 transition-all">📝 Paper Trade</button>
-            <button onClick={() => onWatch(signal)} className="px-4 py-2 bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 rounded-xl text-xs font-bold hover:bg-cyan-500/30 transition-all">👁 Watch</button>
-          </div>
+          <button onClick={() => onTrade(signal, shares, actualEntry, fee)} className="w-full px-4 py-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-500/30 transition-all">📝 Paper Trade</button>
         </div>
       )}
     </div>
@@ -574,7 +487,6 @@ function App() {
   const [baggerPortfolio, setBaggerPortfolio] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [toast, setToast] = useState(null);
-  const [watchlist, setWatchlist] = useState([]);
 
   const target = settings.target;
   const progress = (balance / target) * 100;
@@ -594,18 +506,16 @@ function App() {
       setAuthLoading(false);
       if (firebaseUser) {
         setDbLoading(true);
-        const [bal, tradeList, baggerList, savedSettings, watchlistData] = await Promise.all([
+        const [bal, tradeList, baggerList, savedSettings] = await Promise.all([
           getBalanceDB(firebaseUser.uid),
           getTradesDB(firebaseUser.uid),
           getBaggerPortfolioDB(firebaseUser.uid),
           getSettingsDB(firebaseUser.uid),
-          getWatchlistDB(firebaseUser.uid),
         ]);
         setBalance(bal);
         setTrades(tradeList);
         setBaggerPortfolio(baggerList);
         setSettings(savedSettings);
-        setWatchlist(watchlistData);
         setDbLoading(false);
       }
     });
@@ -628,29 +538,6 @@ function App() {
     await saveSettingsDB(user.uid, newSettings);
     setSettings(newSettings);
     showToast('✅ Settings saved!');
-  }
-
-  async function handleWatch(signal) {
-    if (watchlist.length >= 15) { showToast('⚠️ Watchlist full! Remove a stock first.', 'error'); return; }
-    if (watchlist.find(w => w.ticker === signal.ticker)) { showToast('Already on watchlist!', 'error'); return; }
-    const item = {
-      ticker: signal.ticker,
-      signal: signal.action,
-      confidence: signal.confidence,
-      addedPrice: signal.price || signal.entry,
-      addedAt: new Date().toISOString(),
-      target: signal.target,
-      stop: signal.stop,
-    };
-    await addToWatchlistDB(user.uid, item);
-    setWatchlist(prev => [...prev, item]);
-    showToast(`👁 ${signal.ticker} added to watchlist!`);
-  }
-
-  async function handleRemoveWatch(ticker) {
-    await removeFromWatchlistDB(user.uid, ticker);
-    setWatchlist(prev => prev.filter(w => w.ticker !== ticker));
-    showToast(`Removed ${ticker} from watchlist`);
   }
 
   async function handleTrade(signal, shares, actualEntry, fee) {
@@ -741,7 +628,7 @@ function App() {
         setScanStats({ swingFound: scanResults.swingCandidates.length, newsStocks: scanResults.newsStocks.length });
         setLoadingMsg(`✅ Found ${candidates.length} candidates! Analyzing with Gemini...`);
       }
-      const results = await analyzeScannedStocks(candidates);
+const results = await analyzeScannedStocks(candidates);
       const filtered = results.filter(s => s.action !== 'HOLD');
       setSignals(filtered);
       setLastUpdated(new Date().toLocaleTimeString());
@@ -754,8 +641,7 @@ function App() {
           `🎯 Target: $${s.target} · Stop: $${s.stop}\n` +
           `📊 ${s.reasoning}`
         );
-      }
-    } catch (e) { console.error('Signal error:', e); showToast('❌ Scanner error', 'error'); }
+      }    } catch (e) { console.error('Signal error:', e); showToast('❌ Scanner error', 'error'); }
     setLoading(false); setLoadingMsg('');
   }
 
@@ -891,7 +777,6 @@ function App() {
           <button onClick={() => { setActiveTab('trading'); fetchSignals(); }} className={`px-3 md:px-5 py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeTab==='trading'?'bg-emerald-500 text-black':'bg-gray-800 text-gray-400'}`}>⚡ Signals</button>
           <button onClick={() => { setActiveTab('baggers'); fetchBaggers(); }} className={`px-3 md:px-5 py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeTab==='baggers'?'bg-cyan-500 text-black':'bg-gray-800 text-gray-400'}`}>🔭 100-Baggers</button>
           <button onClick={() => setActiveTab('baggerPortfolio')} className={`px-3 md:px-5 py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeTab==='baggerPortfolio'?'bg-cyan-500 text-black':'bg-gray-800 text-gray-400'}`}>📈 Portfolio ({baggerPortfolio.length})</button>
-          <button onClick={() => setActiveTab('watchlist')} className={`px-3 md:px-5 py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeTab==='watchlist'?'bg-yellow-500 text-black':'bg-gray-800 text-gray-400'}`}>👁 Watchlist ({watchlist.length})</button>
           <button onClick={() => setActiveTab('tracker')} className={`px-3 md:px-5 py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeTab==='tracker'?'bg-purple-500 text-black':'bg-gray-800 text-gray-400'}`}>📊 Trades ({openTrades.length})</button>
           <button onClick={() => setActiveTab('settings')} className={`px-3 md:px-5 py-2 rounded-full text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeTab==='settings'?'bg-gray-500 text-white':'bg-gray-800 text-gray-400'}`}>⚙️ Settings</button>
         </div>
@@ -922,7 +807,7 @@ function App() {
                 <p className="text-gray-600 font-mono text-xs">Click "Scan Market" to find today's best opportunities</p>
               </div>
             )}
-            {signals.map((signal,i) => <SignalCard key={i} signal={signal} onTrade={handleTrade} onWatch={handleWatch} balance={balance} settings={settings}/>)}
+            {signals.map((signal,i) => <SignalCard key={i} signal={signal} onTrade={handleTrade} balance={balance} settings={settings}/>)}
           </div>
         )}
 
@@ -951,35 +836,6 @@ function App() {
             {baggerPortfolio.length===0 && <p className="text-gray-600 text-center py-8 font-mono">No positions — scan 100-Baggers and add stocks!</p>}
             <div className="grid grid-cols-1 gap-4">
               {baggerPortfolio.map((pos,i) => <BaggerPositionCard key={i} position={pos} onRemove={() => handleRemoveBagger(pos.ticker)}/>)}
-            </div>
-          </div>
-        )}
-
-        {activeTab==='watchlist' && (
-          <div>
-            <div className="bg-gray-900 border border-yellow-500/20 rounded-2xl p-4 mb-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-yellow-400 text-xs uppercase tracking-widest">👁 Watchlist</p>
-                  <p className="text-gray-500 text-xs mt-1">Track stocks · AI recommendations · Latest news · {watchlist.length}/15 slots used</p>
-                </div>
-              </div>
-            </div>
-            {watchlist.length===0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500 font-mono text-sm mb-2">👁 Your watchlist is empty</p>
-                <p className="text-gray-600 font-mono text-xs">Click "👁 Watch" on any signal card to add stocks here</p>
-              </div>
-            )}
-            <div className="grid grid-cols-1 gap-4">
-              {watchlist.map((stock, i) => (
-                <WatchlistCard
-                  key={i}
-                  stock={stock}
-                  onRemove={handleRemoveWatch}
-                  onBuyNow={(s) => { setActiveTab('trading'); showToast(`Search for ${s.ticker} in signals!`); }}
-                />
-              ))}
             </div>
           </div>
         )}
