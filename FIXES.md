@@ -2,6 +2,8 @@
 Last updated: April 27, 2026
 
 ## 🔥 Build Next
+- [ ] Watchlist tab — track stocks with confidence ring, price change since added, 3 news headlines, AI recommendation (Buy Now / Watch / Drop It)
+- [ ] Stock charts on each signal card — daily, weekly, monthly, 1yr, 5yr, all time
 - [ ] News watchlist — add Firebase trades to news scanner
 - [ ] Chatbot Trading Mode — "which stock should I buy today?"
 - [ ] Chatbot Trade History — AI can see all your past trades and analyze performance

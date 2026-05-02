@@ -1,4 +1,3 @@
-const ALPHA_KEY = process.env.REACT_APP_ALPHA_KEY;
 const CACHE_KEY = 'lui_price_cache';
 const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
 
@@ -20,22 +19,23 @@ function setCache(data) {
 
 export async function getStockPrice(ticker) {
   try {
-    const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${ALPHA_KEY}`;
-    const response = await fetch(url);
+    const response = await fetch(`/api/get-price?ticker=${ticker}`);
     const data = await response.json();
-    const quote = data['Global Quote'];
-    if (!quote || !quote['05. price']) return null;
-    const price = parseFloat(quote['05. price']);
-    const prevClose = parseFloat(quote['08. previous close']);
-    const change = parseFloat(quote['10. change percent'].replace('%', ''));
-    const volume = parseInt(quote['06. volume']) || 0;
-    const formattedVolume = volume > 1000000 ? `${(volume / 1000000).toFixed(1)}M` : volume > 1000 ? `${(volume / 1000).toFixed(1)}K` : `${volume}`;
+    if (data.error) return null;
+    
+    const volume = data.volume;
+    const formattedVolume = volume >= 1000000 
+      ? `${(volume/1000000).toFixed(1)}M`
+      : volume >= 1000 
+      ? `${(volume/1000).toFixed(0)}K` 
+      : `${volume}`;
+
     return {
       ticker,
-      price: parseFloat(price.toFixed(2)),
-      change: parseFloat(change.toFixed(2)),
+      price: parseFloat(data.price.toFixed(2)),
+      change: parseFloat(data.change.toFixed(2)),
       volume: formattedVolume,
-      prevClose: parseFloat(prevClose.toFixed(2)),
+      prevClose: parseFloat(data.prevClose.toFixed(2)),
     };
   } catch (e) {
     console.error(`Error fetching ${ticker}:`, e);
@@ -49,16 +49,13 @@ export async function getAllPrices(tickers) {
     console.log('✅ Using cached prices (less than 15 mins old)');
     return cached;
   }
-
-  console.log('📡 Fetching fresh prices from Alpha Vantage...');
+  console.log('📡 Fetching fresh prices from Yahoo Finance...');
   const results = [];
   for (const ticker of tickers) {
     const data = await getStockPrice(ticker);
     if (data) results.push(data);
     else console.warn(`Skipping ${ticker} — no price data available`);
-    await new Promise(resolve => setTimeout(resolve, 1200));
   }
-
   if (results.length > 0) setCache(results);
   return results;
 }
