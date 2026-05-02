@@ -1,8 +1,7 @@
 # Trading App - Fixes & To-Do List
-Last updated: April 27, 2026
+Last updated: May 2, 2026
 
 ## 🔥 Build Next
-- [ ] Watchlist tab — track stocks with confidence ring, price change since added, 3 news headlines, AI recommendation (Buy Now / Watch / Drop It)
 - [ ] Stock charts on each signal card — daily, weekly, monthly, 1yr, 5yr, all time
 - [ ] News watchlist — add Firebase trades to news scanner
 - [ ] Chatbot Trading Mode — "which stock should I buy today?"
@@ -23,6 +22,7 @@ Last updated: April 27, 2026
 
 ## ✅ Completed
 - [x] Live stock prices (Alpha Vantage + 15min cache)
+- [x] Switched to Yahoo Finance (unlimited free real time prices)
 - [x] Autonomous market scanner (Top Gainers, Most Active, News Driven)
 - [x] Custom ticker search field
 - [x] Gemini AI trade signals with confidence rings
@@ -45,3 +45,4 @@ Last updated: April 27, 2026
 - [x] Auto morning scan (6:30 AM PST Mon-Fri)
 - [x] Breaking news detector (hourly during market hours)
 - [x] GitHub connected (adwinlui-afk/trading-app)
+- [x] 👁 Watchlist tab (confidence ring, price tracking, 3 news headlines, AI recommendation)
