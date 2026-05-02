@@ -8,7 +8,7 @@ import { signInWithGoogle, signOutUser, onAuthChange, getBalanceDB, setBalanceDB
 import { askStockQuestion } from './services/chat';
 import { getWatchlistDB, addToWatchlistDB, removeFromWatchlistDB } from './services/watchlist';
 import { getWatchlistNews, getWatchlistRecommendation } from './services/watchlistAnalyzer';
-
+import StockChart from './components/StockChart';
 const FALLBACK_STOCKS = [
   { ticker: 'SOUN', price: 8.19, change: 4.73, volume: '29.0M', type: 'gainer' },
   { ticker: 'CRKN', price: 0.07, change: 0, volume: '120', type: 'active' },
@@ -440,14 +440,14 @@ function SignalCard({ signal, onTrade, onWatch, balance, settings }) {
           </div>
           <div className="flex gap-2">
             <button onClick={() => onTrade(signal, shares, actualEntry, fee)} className="flex-1 px-4 py-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-500/30 transition-all">📝 Paper Trade</button>
-            <button onClick={() => onWatch(signal)} className="px-4 py-2 bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 rounded-xl text-xs font-bold hover:bg-cyan-500/30 transition-all">👁 Watch</button>
+<button onClick={() => onWatch(signal)} className="px-4 py-2 bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 rounded-xl text-xs font-bold hover:bg-cyan-500/30 transition-all">👁 Watch</button>
+            <button onClick={() => onChart(signal.ticker)} className="px-4 py-2 bg-purple-500/20 border border-purple-500/30 text-purple-400 rounded-xl text-xs font-bold hover:bg-purple-500/30 transition-all">📊 Chart</button>
           </div>
         </div>
       )}
     </div>
   );
 }
-
 function BaggerCard({ bagger, onAddToPortfolio }) {
   const scoreColor = bagger.score>=90?'text-emerald-400':bagger.score>=80?'text-cyan-400':bagger.score>=70?'text-amber-400':'text-red-400';
   const [shares, setShares] = useState(1);
@@ -575,7 +575,7 @@ function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [toast, setToast] = useState(null);
   const [watchlist, setWatchlist] = useState([]);
-
+  const [chartTicker, setChartTicker] = useState(null);
   const target = settings.target;
   const progress = (balance / target) * 100;
   const closedTrades = trades.filter(t => t.status === 'CLOSED');
@@ -922,7 +922,7 @@ function App() {
                 <p className="text-gray-600 font-mono text-xs">Click "Scan Market" to find today's best opportunities</p>
               </div>
             )}
-            {signals.map((signal,i) => <SignalCard key={i} signal={signal} onTrade={handleTrade} onWatch={handleWatch} balance={balance} settings={settings}/>)}
+             {signals.map((signal,i) => <SignalCard key={i} signal={signal} onTrade={handleTrade} onWatch={handleWatch} onChart={setChartTicker} balance={balance} settings={settings}/>)}
           </div>
         )}
 
@@ -1021,6 +1021,7 @@ function App() {
 
         <p className="text-center text-gray-700 text-xs font-mono mt-8">雷 Lui Trading · Gemini AI · Market Scanner · Firebase · {settings.platform}</p>
       </div>
+      {chartTicker && <StockChart ticker={chartTicker} onClose={() => setChartTicker(null)}/>}
     </div>
   );
 }
