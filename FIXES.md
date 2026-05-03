@@ -2,9 +2,6 @@
 Last updated: May 2, 2026
 
 ## 🔥 Build Next
-- [ ] Chatbot Trading Mode — "which stock should I buy today?"
-- [ ] Chatbot Trade History — AI can see all your past trades and analyze performance
-- [ ] Telegram BUY suggestions — bot messages you with entry price + share count
 - [ ] Trading Education Hub — candlestick guide, pattern recognition, confirm signals checklist
 - [ ] Signal confirmation checklist — "did you check the chart? volume? news?" before paper trading
 - [ ] Mini lessons — support/resistance, volume, RSI, MACD
@@ -20,7 +17,13 @@ Last updated: May 2, 2026
 - [ ] Podcast planning
 - [ ] Social media strategy
 
-## ✅ Completed
+## ✅ Completed (May 2 2026 — Session 2)
+- [x] Telegram morning BUY suggestions — top 3 gainers with exact share count, total cost, and remaining balance based on $1,000 / $9.95 BMO fee
+- [x] AI chatbot trade history mode — analyzes win rate, avg winner %, avg loser %, best day of week, hold time (winners vs losers), best and worst trade ever
+- [x] ChatWidget upgraded — now passes full trade stats (win rate, hold days, P&L breakdown) to every chat session
+- [x] Chatbot suggestions updated — "Which stock should I buy today?", "Analyze my trading history", "How is my portfolio doing?", "What is P/E ratio?"
+
+## ✅ Completed (May 2 2026 — Session 1)
 - [x] Live stock prices — Yahoo Finance (unlimited, no rate limits)
 - [x] Autonomous market scanner — Finnhub serverless (24 stocks, no rate limits)
 - [x] Custom ticker search field
