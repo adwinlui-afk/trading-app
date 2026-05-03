@@ -1,6 +1,6 @@
 const NEWS_KEY = process.env.REACT_APP_NEWS_KEY;
 
-// Predefined list of stocks to scan - no API limits!
+// Scan list for news detection
 const SCAN_LIST = [
   'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMD', 'META', 'GOOGL', 'AMZN',
   'PLTR', 'IONQ', 'SOUN', 'RXRX', 'CRSP', 'HIMS', 'SHOP', 'LSPD',
@@ -8,38 +8,15 @@ const SCAN_LIST = [
   'ARKG', 'ARKK', 'SOXL', 'TQQQ', 'SPXL', 'NAIL',
 ];
 
-// Get prices from Yahoo Finance via our serverless function
-async function getYahooPrice(ticker) {
-  try {
-    const res = await fetch(`/api/get-price?ticker=${ticker}`);
-    const data = await res.json();
-    if (data.error) return null;
-    return {
-      ticker,
-      price: data.price,
-      change: data.change,
-      volume: data.volume,
-      type: 'gainer',
-    };
-  } catch (e) {
-    return null;
-  }
-}
-
-// Scan all stocks and find top movers
+// Get top movers from our serverless Yahoo Finance scanner
 export async function getTopMovers() {
   try {
-    console.log('📡 Scanning with Yahoo Finance...');
-    const results = await Promise.all(SCAN_LIST.map(t => getYahooPrice(t)));
-    const valid = results.filter(Boolean);
-    
-    // Sort by absolute % change to find top movers
-    const sorted = valid.sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
-    
-    // Tag gainers vs actives
-    return sorted.map(s => ({
+    console.log('📡 Fetching from Yahoo Finance scanner...');
+    const res = await fetch('/api/scan');
+    const data = await res.json();
+    if (!data.stocks || data.stocks.length === 0) return [];
+    return data.stocks.map(s => ({
       ...s,
-      type: s.change > 0 ? 'gainer' : 'active',
       volume: s.volume ? s.volume.toLocaleString() : '0',
     }));
   } catch (e) {
@@ -53,7 +30,9 @@ export function filterSwingCandidates(stocks) {
   return stocks.filter(s => {
     const price = s.price;
     const change = Math.abs(s.change);
-    const volume = parseInt(s.volume?.replace(/,/g, '') || '0');
+    const volume = typeof s.volume === 'string' 
+      ? parseInt(s.volume.replace(/,/g, '') || '0')
+      : s.volume || 0;
     return (
       price >= 0.10 &&
       price <= 500 &&
@@ -69,7 +48,9 @@ export function filterSwingCandidates(stocks) {
 export function filter100BaggerCandidates(stocks) {
   return stocks.filter(s => {
     const price = s.price;
-    const volume = parseInt(s.volume?.replace(/,/g, '') || '0');
+    const volume = typeof s.volume === 'string'
+      ? parseInt(s.volume.replace(/,/g, '') || '0')
+      : s.volume || 0;
     return (
       price >= 0.50 &&
       price <= 50 &&
@@ -102,7 +83,7 @@ export async function getNewsDrivenStocks() {
             ticker: match,
             sentimentScore: 0.5,
             newsHeadline: article.title,
-            source: article.source.name,
+            source: article.source?.name,
           });
         }
       }

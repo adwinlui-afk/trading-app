@@ -12,7 +12,13 @@ const PERIODS = [
 export default function StockChart({ ticker, onClose }) {
   const containerRef = useRef(null);
   const [activePeriod, setActivePeriod] = useState(PERIODS[0]);
-
+useEffect(() => {
+    function handleEsc(e) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
   useEffect(() => {
     if (!containerRef.current) return;
     containerRef.current.innerHTML = '';
