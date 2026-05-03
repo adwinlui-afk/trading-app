@@ -801,8 +801,7 @@ function App() {
         </div>
       )}
 
-      <ChatWidget balance={balance} trades={trades} baggerPortfolio={baggerPortfolio}/>
-
+<ChatWidget balance={balance} trades={trades} baggerPortfolio={baggerPortfolio} signals={signals} settings={settings}/>
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-8">
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-3">

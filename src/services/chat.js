@@ -1,5 +1,4 @@
 const GEMINI_KEY = process.env.REACT_APP_GEMINI_KEY;
-const ALPHA_KEY = process.env.REACT_APP_ALPHA_KEY;
 
 async function callGemini(prompt) {
   const response = await fetch(
@@ -9,7 +8,7 @@ async function callGemini(prompt) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1 }
+        generationConfig: { temperature: 0.3 }
       })
     }
   );
@@ -18,44 +17,45 @@ async function callGemini(prompt) {
   return data.candidates[0].content.parts[0].text;
 }
 
-async function getStockContext(ticker) {
-  try {
-    const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${ALPHA_KEY}`;
-    const response = await fetch(url);
-    const data = await response.json();
-    const quote = data['Global Quote'];
-    if (!quote || !quote['05. price']) return null;
-    return {
-      price: parseFloat(quote['05. price']),
-      change: quote['10. change percent'],
-      volume: quote['06. volume'],
-      high: quote['03. high'],
-      low: quote['04. low'],
-    };
-  } catch (e) { return null; }
+function isTradingModeQuestion(question) {
+  const q = question.toLowerCase();
+  return (
+    q.includes('buy') || q.includes('which stock') || q.includes('what should i') ||
+    q.includes('recommend') || q.includes('best stock') || q.includes('opportunity') ||
+    q.includes('portfolio') || q.includes('how am i doing') || q.includes('win rate') ||
+    q.includes('p&l') || q.includes('profit') || q.includes('loss') || q.includes('close') ||
+    q.includes('sell') || q.includes('exit') || q.includes('trade') || q.includes('milestone') ||
+    q.includes('on track') || q.includes('fees') || q.includes('balance')
+  );
 }
 
 export async function askStockQuestion(question, portfolioContext) {
-  // Extract any ticker mentioned in the question
-  const tickerMatch = question.match(/\b[A-Z]{1,5}\b/g);
-  const tickers = tickerMatch ? tickerMatch.filter(t => t.length >= 2 && t.length <= 5) : [];
+  const isTrading = isTradingModeQuestion(question);
 
-  let priceContext = '';
-  if (tickers.length > 0) {
-    const priceData = await getStockContext(tickers[0]);
-    if (priceData) {
-      priceContext = `
-Current market data for ${tickers[0]}:
-- Price: $${priceData.price}
-- Change: ${priceData.change}
-- Volume: ${priceData.volume}
-- Day High: $${priceData.high}
-- Day Low: $${priceData.low}
-`;
-    }
-  }
+  let prompt;
 
-  const prompt = `You are a factual stock market assistant for a Canadian retail investor using BMO InvestorLine.
+  if (isTrading) {
+    prompt = `You are an AI trading coach for a Canadian retail investor. You have full access to their portfolio and today's market scan.
+
+${portfolioContext}
+
+TRADING COACH RULES:
+1. For "which stock should I buy" — recommend the highest confidence BUY signal from TODAY'S TOP SIGNALS with exact share count based on their balance and fee
+2. Always calculate: shares = floor((balance * 0.25 - fee) / price), show total cost and remaining balance
+3. Warn if they already have 2+ open trades at this balance level
+4. Only recommend stocks with 70%+ confidence
+5. Always say "verify the chart before entering" 
+6. For portfolio questions — give specific numbers from their data
+7. For "should I close" questions — compare current price to entry and target
+8. Be direct and specific — give a clear recommendation with numbers
+9. End with a one-line risk reminder
+10. Keep response under 150 words
+
+User question: ${question}
+
+Give a specific, data-driven response:`;
+  } else {
+    prompt = `You are a factual stock market assistant for a Canadian retail investor using BMO InvestorLine.
 
 STRICT RULES:
 1. Only state FACTS — never speculate or predict prices
@@ -64,17 +64,15 @@ STRICT RULES:
 4. Keep answers concise — 2-4 sentences max
 5. For Canadian investors: mention TSX alternatives when relevant
 6. Never say "you should buy" or "you should sell" — only provide facts
-7. If asked about price targets, give analyst consensus ranges only
-8. Always caveat with "this is not financial advice"
+7. Always caveat with "this is not financial advice"
 
 User's portfolio context:
 ${portfolioContext}
 
-${priceContext}
-
 User question: ${question}
 
 Answer factually and concisely:`;
+  }
 
   const response = await callGemini(prompt);
   return response;
