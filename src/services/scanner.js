@@ -35,9 +35,7 @@ export function filterSwingCandidates(stocks) {
       : s.volume || 0;
     return (
       price >= 0.10 &&
-      price <= 500 &&
-      volume >= 100000 &&
-      change >= 1 &&
+price <= 1000 &&(volume >= 100000 || volume === 0) &&      change >= 0.1 &&
       s.ticker.length <= 5 &&
       !s.ticker.includes('.')
     );
@@ -54,8 +52,7 @@ export function filter100BaggerCandidates(stocks) {
     return (
       price >= 0.50 &&
       price <= 50 &&
-      volume >= 100000 &&
-      s.change > 0 &&
+(volume >= 100000 || volume === 0) &&      s.change > 0 &&
       s.ticker.length <= 5 &&
       !s.ticker.includes('.')
     );
