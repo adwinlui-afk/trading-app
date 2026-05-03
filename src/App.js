@@ -94,7 +94,7 @@ function LoginScreen({ onLogin }) {
   );
 }
 
-function ChatWidget({ balance, trades, baggerPortfolio }) {
+function ChatWidget({ balance, trades, baggerPortfolio, signals, settings }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
     { role: 'ai', text: 'Hi! Ask me anything about stocks, your portfolio, or trading strategy. I only give facts — no speculation! 📊' }
@@ -107,7 +107,31 @@ function ChatWidget({ balance, trades, baggerPortfolio }) {
     if (open) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, open]);
 
-  const portfolioContext = `Balance: $${balance}, Open trades: ${trades.filter(t=>t.status==='OPEN').map(t=>t.ticker).join(', ')||'none'}, 100-Bagger positions: ${baggerPortfolio.map(p=>p.ticker).join(', ')||'none'}`;
+  const openTrades = trades.filter(t => t.status === 'OPEN');
+  const closedTrades = trades.filter(t => t.status === 'CLOSED');
+  const wins = closedTrades.filter(t => t.pnl > 0);
+  const losses = closedTrades.filter(t => t.pnl <= 0);
+  const winRate = closedTrades.length > 0 ? ((wins.length / closedTrades.length) * 100).toFixed(1) : 'N/A';
+  const avgWinPct = wins.length > 0 ? (wins.reduce((s, t) => s + t.pnlPercent, 0) / wins.length).toFixed(1) : 'N/A';
+  const avgLossPct = losses.length > 0 ? (losses.reduce((s, t) => s + t.pnlPercent, 0) / losses.length).toFixed(1) : 'N/A';
+  const bestTrade = [...closedTrades].sort((a, b) => b.pnlPercent - a.pnlPercent)[0];
+  const worstTrade = [...closedTrades].sort((a, b) => a.pnlPercent - b.pnlPercent)[0];
+  const totalPnl = closedTrades.reduce((s, t) => s + (t.pnl || 0), 0).toFixed(2);
+  const totalFees = trades.reduce((s, t) => s + (t.fee || 0) + (t.exitFee || 0), 0).toFixed(2);
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const winsByDay = {};
+  wins.forEach(t => { if (t.openedAt) { const d = dayNames[new Date(t.openedAt).getDay()]; winsByDay[d] = (winsByDay[d] || 0) + 1; } });
+  const bestDay = Object.keys(winsByDay).sort((a, b) => winsByDay[b] - winsByDay[a])[0] || 'not enough data';
+  const holdDays = t => (t.openedAt && t.closedAt) ? ((new Date(t.closedAt) - new Date(t.openedAt)) / 86400000).toFixed(1) : 0;
+  const avgWinDays = wins.length > 0 ? (wins.reduce((s, t) => s + parseFloat(holdDays(t)), 0) / wins.length).toFixed(1) : 'N/A';
+  const avgLossDays = losses.length > 0 ? (losses.reduce((s, t) => s + parseFloat(holdDays(t)), 0) / losses.length).toFixed(1) : 'N/A';
+
+  const portfolioContext = `ACCOUNT: Balance $${balance} | Platform: ${settings?.platform || 'BMO InvestorLine'} | Fee: $${settings?.stockFee || 9.95}
+TODAY'S SIGNALS: ${(signals || []).slice(0, 3).map(s => `${s.ticker} ${s.action} ${s.confidence}%`).join(', ') || 'none loaded'}
+OPEN TRADES: ${openTrades.map(t => `${t.ticker} ${t.shares}x@$${t.actualEntry || t.entry}`).join(', ') || 'none'}
+100-BAGGER POSITIONS: ${baggerPortfolio.map(p => p.ticker).join(', ') || 'none'}
+TRADE HISTORY: ${closedTrades.length} closed | Win rate: ${winRate}% | Avg winner: +${avgWinPct}% | Avg loser: ${avgLossPct}% | Best day: ${bestDay} | Avg hold (wins): ${avgWinDays}d | Avg hold (losses): ${avgLossDays}d | Best trade: ${bestTrade ? `${bestTrade.ticker} +${bestTrade.pnlPercent}%` : 'none'} | Worst trade: ${worstTrade && worstTrade.pnl < 0 ? `${worstTrade.ticker} ${worstTrade.pnlPercent}%` : 'none'} | Total P&L: $${totalPnl} | Total fees paid: $${totalFees}
+RECENT CLOSED TRADES: ${closedTrades.slice(-8).map(t => `${t.ticker}(opened:${t.openedAt?.slice(0,10)||'?'} closed:${t.closedAt?.slice(0,10)||'?'} P&L:${t.pnl>0?'+':''}$${t.pnl}/${t.pnlPercent}%)`).join(', ') || 'none'}`;
 
   async function handleSend() {
     if (!input.trim() || thinking) return;
@@ -124,7 +148,7 @@ function ChatWidget({ balance, trades, baggerPortfolio }) {
     setThinking(false);
   }
 
-  const suggestions = ['What is NVDA?', 'Is IONQ a good long term hold?', 'What is P/E ratio?', 'Explain quantum computing stocks'];
+  const suggestions = ['Which stock should I buy today?', 'Analyze my trading history', 'How is my portfolio doing?', 'What is P/E ratio?'];
 
   return (
     <>
