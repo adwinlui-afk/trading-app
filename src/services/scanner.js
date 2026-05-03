@@ -1,29 +1,47 @@
-const ALPHA_KEY = process.env.REACT_APP_ALPHA_KEY;
+const NEWS_KEY = process.env.REACT_APP_NEWS_KEY;
 
-// Top movers and active stocks from Alpha Vantage
+// Predefined list of stocks to scan - no API limits!
+const SCAN_LIST = [
+  'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMD', 'META', 'GOOGL', 'AMZN',
+  'PLTR', 'IONQ', 'SOUN', 'RXRX', 'CRSP', 'HIMS', 'SHOP', 'LSPD',
+  'MSTR', 'COIN', 'HOOD', 'SOFI', 'UPST', 'AFRM', 'RBLX', 'U',
+  'ARKG', 'ARKK', 'SOXL', 'TQQQ', 'SPXL', 'NAIL',
+];
+
+// Get prices from Yahoo Finance via our serverless function
+async function getYahooPrice(ticker) {
+  try {
+    const res = await fetch(`/api/get-price?ticker=${ticker}`);
+    const data = await res.json();
+    if (data.error) return null;
+    return {
+      ticker,
+      price: data.price,
+      change: data.change,
+      volume: data.volume,
+      type: 'gainer',
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+// Scan all stocks and find top movers
 export async function getTopMovers() {
   try {
-    const url = `https://www.alphavantage.co/query?function=TOP_GAINERS_LOSERS&apikey=${ALPHA_KEY}`;
-    const response = await fetch(url);
-    const data = await response.json();
-
-    const gainers = (data.top_gainers || []).slice(0, 10).map(s => ({
-      ticker: s.ticker,
-      price: parseFloat(s.price),
-      change: parseFloat(s.change_percentage.replace('%', '')),
-      volume: s.volume,
-      type: 'gainer'
+    console.log('📡 Scanning with Yahoo Finance...');
+    const results = await Promise.all(SCAN_LIST.map(t => getYahooPrice(t)));
+    const valid = results.filter(Boolean);
+    
+    // Sort by absolute % change to find top movers
+    const sorted = valid.sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+    
+    // Tag gainers vs actives
+    return sorted.map(s => ({
+      ...s,
+      type: s.change > 0 ? 'gainer' : 'active',
+      volume: s.volume ? s.volume.toLocaleString() : '0',
     }));
-
-    const actives = (data.most_actively_traded || []).slice(0, 10).map(s => ({
-      ticker: s.ticker,
-      price: parseFloat(s.price),
-      change: parseFloat(s.change_percentage.replace('%', '')),
-      volume: s.volume,
-      type: 'active'
-    }));
-
-    return [...gainers, ...actives];
   } catch (e) {
     console.error('Scanner error:', e);
     return [];
@@ -36,17 +54,11 @@ export function filterSwingCandidates(stocks) {
     const price = s.price;
     const change = Math.abs(s.change);
     const volume = parseInt(s.volume?.replace(/,/g, '') || '0');
-
-    // Must be:
-    // - Price between $0.10 and $500 (available on BMO)
-    // - Volume over 500,000 (liquid enough to trade)
-    // - Price change over 3% (momentum)
-    // - Not a test/invalid ticker
     return (
       price >= 0.10 &&
       price <= 500 &&
-      volume >= 500000 &&
-      change >= 3 &&
+      volume >= 100000 &&
+      change >= 1 &&
       s.ticker.length <= 5 &&
       !s.ticker.includes('.')
     );
@@ -58,11 +70,6 @@ export function filter100BaggerCandidates(stocks) {
   return stocks.filter(s => {
     const price = s.price;
     const volume = parseInt(s.volume?.replace(/,/g, '') || '0');
-
-    // 100-bagger candidates:
-    // - Small/mid cap (price under $50)
-    // - Decent volume (over 100,000)
-    // - Positive momentum
     return (
       price >= 0.50 &&
       price <= 50 &&
@@ -74,50 +81,42 @@ export function filter100BaggerCandidates(stocks) {
   });
 }
 
-// Get news-driven movers
+// Get news-driven stocks using NewsAPI
 export async function getNewsDrivenStocks() {
   try {
-    const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&topics=earnings,ipo,mergers_and_acquisitions&sort=RELEVANCE&limit=20&apikey=${ALPHA_KEY}`;
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (!data.feed) return [];
+    const url = `https://newsapi.org/v2/everything?q=stock+earnings+FDA+merger+acquisition&sortBy=publishedAt&pageSize=20&apiKey=${NEWS_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.articles) return [];
 
     const tickers = new Set();
     const stocks = [];
 
-    for (const article of data.feed) {
-      for (const ticker of (article.ticker_sentiment || [])) {
-        if (
-          !tickers.has(ticker.ticker) &&
-          parseFloat(ticker.relevance_score) > 0.5 &&
-          Math.abs(parseFloat(ticker.ticker_sentiment_score)) > 0.2 &&
-          ticker.ticker.length <= 5 &&
-          !ticker.ticker.includes('.')
-        ) {
-          tickers.add(ticker.ticker);
+    for (const article of data.articles) {
+      const text = `${article.title} ${article.description || ''}`;
+      const matches = text.match(/\b([A-Z]{2,5})\b/g) || [];
+      for (const match of matches) {
+        if (!tickers.has(match) && match.length <= 5 && SCAN_LIST.includes(match)) {
+          tickers.add(match);
           stocks.push({
-            ticker: ticker.ticker,
-            sentimentScore: parseFloat(ticker.ticker_sentiment_score),
-            relevance: parseFloat(ticker.relevance_score),
-            sentiment: ticker.ticker_sentiment_label,
+            ticker: match,
+            sentimentScore: 0.5,
             newsHeadline: article.title,
-            source: article.source,
+            source: article.source.name,
           });
         }
       }
     }
-
-    return stocks.slice(0, 15);
+    return stocks.slice(0, 10);
   } catch (e) {
     console.error('News scanner error:', e);
     return [];
   }
 }
 
-// Main scan function - runs everything
+// Main scan function
 export async function runDailyScan() {
-  console.log('🔍 Running daily stock scan...');
+  console.log('🔍 Running daily stock scan with Yahoo Finance...');
 
   const [movers, newsStocks] = await Promise.all([
     getTopMovers(),
@@ -127,13 +126,11 @@ export async function runDailyScan() {
   const swingCandidates = filterSwingCandidates(movers);
   const baggerCandidates = filter100BaggerCandidates(movers);
 
-  // Combine news stocks with movers for swing trading
   const newsTickersWithPrice = newsStocks
     .filter(n => n.sentimentScore > 0.2)
-    .map(n => ({ ticker: n.ticker, price: 0, change: 0, volume: '0', newsHeadline: n.newsHeadline }));
+    .map(n => ({ ticker: n.ticker, price: 0, change: 0, volume: '0', newsHeadline: n.newsHeadline, type: 'news' }));
 
-  const allSwingCandidates = [...swingCandidates, ...newsTickersWithPrice]
-    .slice(0, 8);
+  const allSwingCandidates = [...swingCandidates, ...newsTickersWithPrice].slice(0, 10);
 
   console.log(`✅ Found ${swingCandidates.length} swing candidates, ${baggerCandidates.length} 100-bagger candidates`);
 
